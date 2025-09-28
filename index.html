@@ -56,21 +56,20 @@
   const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxRphkBzMvzpU6JaxJljs6B_mh71cTehLD5wMIboOdRsI_YU4LNBgfKUmoEkM2saLl8Pw/exec'; // 예: https://script.google.com/macros/s/AKfycbx.../exec
   // ===============================================
 
-  const $ = (sel) => document.querySelector(sel);
-  const ageInput = $('#age');
+ const $ = (s)=>document.querySelector(s);
+  const ageInput   = $('#age');
   const genderText = $('#gender_text');
-  const msg = $('#msg');
-  const btn = $('#submitBtn');
+  const msg        = $('#msg');
+  const btn        = $('#submitBtn');
 
-  // “기타” 선택 시 추가 입력 노출
   document.addEventListener('change', () => {
     const g = getGender();
     if (g === 'other') {
       genderText.classList.remove('hidden');
-      genderText.setAttribute('required', 'required');
+      genderText.required = true;
     } else {
       genderText.classList.add('hidden');
-      genderText.removeAttribute('required');
+      genderText.required = false;
       genderText.value = '';
     }
   });
@@ -78,74 +77,53 @@
   function getGender() {
     const sel = document.querySelector('input[name="gender"]:checked');
     return sel ? sel.value : '';
-    }
+  }
 
   function validate() {
     const age = Number(ageInput.value);
-    if (!Number.isFinite(age) || age < 14 || age > 100) {
-      return '나이는 14–100 사이의 숫자여야 합니다.';
-    }
+    if (!Number.isFinite(age) || age < 14 || age > 100) return '나이는 14–100 사이';
     const g = getGender();
     if (!g) return '성별을 선택해주세요.';
-    if (g === 'other' && genderText.value.trim().length === 0) {
-      return '기타를 선택한 경우, 상세를 입력해주세요.';
-    }
+    if (g === 'other' && genderText.value.trim().length === 0) return '기타 상세 입력';
     return '';
   }
 
   async function submitForm() {
-    msg.textContent = '';
-    msg.className = 'muted';
-    const error = validate();
-    if (error) {
-      msg.textContent = error;
-      msg.className = 'err';
-      return;
-    }
+    const err = validate();
+    if (err) { msg.textContent = err; msg.className='err'; return; }
 
-    // 중복 제출 방지(간단): 로컬스토리지 플래그
     if (localStorage.getItem('demographic_submitted') === '1') {
-      msg.textContent = '이미 제출한 것으로 감지되었습니다.';
-      msg.className = 'err';
-      return;
+      msg.textContent = '이미 제출한 것으로 감지되었습니다.'; msg.className='err'; return;
     }
 
-    btn.disabled = true;
+    btn.disabled = true; msg.textContent = '제출 중...'; msg.className='muted';
 
-    const payload = {
-      age: Number(ageInput.value),
-      gender: getGender(),
-      gender_text: genderText.value.trim(),
-    };
+    const body = new URLSearchParams();
+    body.set('age', String(Number(ageInput.value)));
+    body.set('gender', getGender());
+    body.set('gender_text', genderText.value.trim());
+    body.set('ua', navigator.userAgent);
 
     try {
-      const url = ENDPOINT + '?ua=' + encodeURIComponent(navigator.userAgent);
-      const res = await fetch(url, {
-        method: 'POST',
-        mode: 'cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.ok) {
-        const why = (data && data.error) ? data.error : ('HTTP ' + res.status);
-        throw new Error(why);
+      const res = await fetch(ENDPOINT, { method:'POST', mode:'cors', body });
+      const text = await res.text();
+      let data = null; try { data = JSON.parse(text); } catch(_){}
+      if (!res.ok || (data && data.ok === false)) {
+        throw new Error((data && data.error) || ('HTTP '+res.status));
       }
-
-      localStorage.setItem('demographic_submitted', '1');
-      msg.textContent = '제출이 완료되었습니다. 응답 ID: ' + data.response_id;
+      const responseId = data?.response_id || '';
+      msg.textContent = '제출이 완료되었습니다.' + (responseId ? ` 응답 ID: ${responseId}` : '');
       msg.className = 'ok';
-    } catch (err) {
-      msg.textContent = '제출에 실패했습니다: ' + String(err.message || err);
+      localStorage.setItem('demographic_submitted', '1');
+    } catch (e) {
+      msg.textContent = '제출 실패: ' + String(e.message || e);
       msg.className = 'err';
       btn.disabled = false;
-      return;
     }
   }
 
-  btn.addEventListener('click', submitForm);
+  $('#submitBtn').addEventListener('click', submitForm);
+</script>
 </script>
 </body>
 </html>
