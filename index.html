@@ -25,7 +25,7 @@
   <h1>사전 설문: 인구통계 (나이·성별)</h1>
   <p class="muted">응답은 익명으로 저장됩니다.</p>
 
-  <!-- 숨은 수신용 iframe (CORS 회피 핵심) -->
+  <!-- 숨은 수신용 iframe -->
   <iframe name="sink" id="sink" style="display:none;"></iframe>
 
   <div class="card">
@@ -47,7 +47,7 @@
         <input id="gender_text" name="gender_text" class="hidden" type="text" placeholder="기타 선택 시 상세 입력" />
       </div>
 
-      <!-- UA 등 추가 메타(옵션) -->
+      <!-- UA 메타 -->
       <input type="hidden" name="ua" id="ua" value="" />
 
       <div class="row" style="margin-top:14px;">
@@ -58,9 +58,7 @@
   </div>
 
 <script>
-  // 제출 상태 플래그 (iframe 초기 onload와 구분)
   let posting = false;
-
   const $ = (s)=>document.querySelector(s);
   const form = $('#survey');
   const msg  = $('#msg');
@@ -97,7 +95,7 @@
     msg.className = 'err';
   }
 
-  // 폼 제출 직전 훅
+  // 폼 제출 직전
   form.addEventListener('submit', (ev) => {
     const err = validate();
     if (err) {
@@ -118,16 +116,16 @@
     msg.className = 'muted';
   });
 
-  // iframe 로드 → 실제 제출 완료 시점에 1회 발생
+  // iframe 로드 → 제출 완료 시점
   document.getElementById('sink').addEventListener('load', () => {
-    if (!posting) return;                 // 초기 로드 무시
+    if (!posting) return; // 초기 로드 무시
     posting = false;
     localStorage.setItem('demographic_submitted', '1');
     msg.textContent = '제출이 완료되었습니다.';
     msg.className = 'ok';
     form.reset();
-    btn.disabled = true;                  // 재제출 막기 (원하면 해제 가능)
-    // 다음 단계로 자동 이동하고 싶으면:
+    btn.disabled = true;  // 재제출 막기
+    // 자동으로 다음 단계로 넘기고 싶다면 ↓ 주석 해제
     // location.href = './next.html';
   });
 </script>
