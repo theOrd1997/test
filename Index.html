@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>광고 실험 사전 설문 (나이·성별)</title>
+<style>
+  :root { --gap: 14px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height: 1.6; margin: 24px auto; max-width: 680px; padding: 0 16px; }
+  .card { border: 1px solid #e5e5e5; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.03); margin-top: var(--gap); }
+  .row  { display: grid; gap: 8px; margin-top: 10px; }
+  .label{ font-weight: 600; }
+  input[type="number"]{ width: 120px; padding: 8px; border:1px solid #ccc; border-radius:10px; }
+  .opt { display:flex; flex-wrap:wrap; gap:10px; }
+  .opt label{ display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #ddd; border-radius:999px; cursor:pointer; }
+  .help { color:#666; font-size:.9rem; }
+  .muted{ color:#888; font-size:.9rem; }
+  .hidden{ display:none !important; }
+  button{ padding:10px 16px; border:0; border-radius:12px; background:#111; color:#fff; font-weight:600; cursor:pointer; }
+  button[disabled]{ opacity:.5; cursor:not-allowed; }
+  .ok{ color:#0a8; }
+  .err{ color:#d33; }
+</style>
+</head>
+<body>
+  <h1>사전 설문: 인구통계 (나이·성별)</h1>
+  <p class="muted">본 설문은 연구 목적으로만 사용되며, 응답은 익명으로 저장됩니다.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="label">나이 <span class="muted">(숫자, 14–100)</span></div>
+      <input id="age" type="number" min="14" max="100" inputmode="numeric" placeholder="예: 24" required />
+    </div>
+
+    <div class="row">
+      <div class="label">성별</div>
+      <div class="opt" role="radiogroup" aria-label="성별">
+        <label><input type="radio" name="gender" value="male" /> 남성</label>
+        <label><input type="radio" name="gender" value="female" /> 여성</label>
+        <label><input type="radio" name="gender" value="nonbinary" /> 논바이너리</label>
+        <label><input type="radio" name="gender" value="prefer_not" /> 응답 거부</label>
+        <label><input type="radio" name="gender" value="other" /> 기타</label>
+      </div>
+      <input id="gender_text" class="hidden" type="text" placeholder="기타인 경우 상세 기입" />
+      <div class="help">※ “기타” 선택 시 구체적으로 적어주세요.</div>
+    </div>
+
+    <div class="row" style="margin-top:14px;">
+      <button id="submitBtn">제출</button>
+      <div id="msg" class="muted"></div>
+    </div>
+  </div>
+
+<script>
+  // ====== 설정: Apps Script 웹앱 URL을 여기에 붙여넣기 ======
+  const ENDPOINT = https://script.google.com/macros/s/AKfycbxRphkBzMvzpU6JaxJljs6B_mh71cTehLD5wMIboOdRsI_YU4LNBgfKUmoEkM2saLl8Pw/exec; // 예: https://script.google.com/macros/s/AKfycbx.../exec
+  // ===============================================
+
+  const $ = (sel) => document.querySelector(sel);
+  const ageInput = $('#age');
+  const genderText = $('#gender_text');
+  const msg = $('#msg');
+  const btn = $('#submitBtn');
+
+  // “기타” 선택 시 추가 입력 노출
+  document.addEventListener('change', () => {
+    const g = getGender();
+    if (g === 'other') {
+      genderText.classList.remove('hidden');
+      genderText.setAttribute('required', 'required');
+    } else {
+      genderText.classList.add('hidden');
+      genderText.removeAttribute('required');
+      genderText.value = '';
+    }
+  });
+
+  function getGender() {
+    const sel = document.querySelector('input[name="gender"]:checked');
+    return sel ? sel.value : '';
+    }
+
+  function validate() {
+    const age = Number(ageInput.value);
+    if (!Number.isFinite(age) || age < 14 || age > 100) {
+      return '나이는 14–100 사이의 숫자여야 합니다.';
+    }
+    const g = getGender();
+    if (!g) return '성별을 선택해주세요.';
+    if (g === 'other' && genderText.value.trim().length === 0) {
+      return '기타를 선택한 경우, 상세를 입력해주세요.';
+    }
+    return '';
+  }
+
+  async function submitForm() {
+    msg.textContent = '';
+    msg.className = 'muted';
+    const error = validate();
+    if (error) {
+      msg.textContent = error;
+      msg.className = 'err';
+      return;
+    }
+
+    // 중복 제출 방지(간단): 로컬스토리지 플래그
+    if (localStorage.getItem('demographic_submitted') === '1') {
+      msg.textContent = '이미 제출한 것으로 감지되었습니다.';
+      msg.className = 'err';
+      return;
+    }
+
+    btn.disabled = true;
+
+    const payload = {
+      age: Number(ageInput.value),
+      gender: getGender(),
+      gender_text: genderText.value.trim(),
+    };
+
+    try {
+      const url = ENDPOINT + '?ua=' + encodeURIComponent(navigator.userAgent);
+      const res = await fetch(url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        const why = (data && data.error) ? data.error : ('HTTP ' + res.status);
+        throw new Error(why);
+      }
+
+      localStorage.setItem('demographic_submitted', '1');
+      msg.textContent = '제출이 완료되었습니다. 응답 ID: ' + data.response_id;
+      msg.className = 'ok';
+    } catch (err) {
+      msg.textContent = '제출에 실패했습니다: ' + String(err.message || err);
+      msg.className = 'err';
+      btn.disabled = false;
+      return;
+    }
+  }
+
+  btn.addEventListener('click', submitForm);
+</script>
+</body>
+</html>
