@@ -3,127 +3,133 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>광고 실험 사전 설문 (나이·성별)</title>
+<title>사전 설문: 인구통계 (나이·성별)</title>
 <style>
   :root { --gap: 14px; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height: 1.6; margin: 24px auto; max-width: 680px; padding: 0 16px; }
-  .card { border: 1px solid #e5e5e5; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.03); margin-top: var(--gap); }
-  .row  { display: grid; gap: 8px; margin-top: 10px; }
-  .label{ font-weight: 600; }
-  input[type="number"]{ width: 120px; padding: 8px; border:1px solid #ccc; border-radius:10px; }
-  .opt { display:flex; flex-wrap:wrap; gap:10px; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; line-height: 1.6; margin: 24px auto; max-width: 680px; padding: 0 16px; }
+  .card { border:1px solid #e5e5e5; border-radius:14px; padding:18px; box-shadow:0 1px 4px rgba(0,0,0,.03); margin-top:var(--gap); }
+  .row  { display:grid; gap:8px; margin-top:10px; }
+  .label{ font-weight:600; }
+  .opt { display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
   .opt label{ display:flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #ddd; border-radius:999px; cursor:pointer; }
-  .help { color:#666; font-size:.9rem; }
-  .muted{ color:#888; font-size:.9rem; }
+  input[type="number"], input[type="text"]{ width: 160px; padding:8px; border:1px solid #ccc; border-radius:10px; }
   .hidden{ display:none !important; }
-  button{ padding:10px 16px; border:0; border-radius:12px; background:#111; color:#fff; font-weight:600; cursor:pointer; }
-  button[disabled]{ opacity:.5; cursor:not-allowed; }
+  .muted{ color:#777; }
   .ok{ color:#0a8; }
   .err{ color:#d33; }
+  button{ padding:10px 16px; border:0; border-radius:12px; background:#111; color:#fff; font-weight:600; cursor:pointer; }
+  button[disabled]{ opacity:.5; cursor:not-allowed; }
 </style>
 </head>
 <body>
   <h1>사전 설문: 인구통계 (나이·성별)</h1>
-  <p class="muted">본 설문은 연구 목적으로만 사용되며, 응답은 익명으로 저장됩니다.</p>
+  <p class="muted">응답은 익명으로 저장됩니다.</p>
+
+  <!-- 숨은 수신용 iframe (CORS 회피 핵심) -->
+  <iframe name="sink" id="sink" style="display:none;"></iframe>
 
   <div class="card">
-    <div class="row">
-      <div class="label">나이 <span class="muted">(숫자, 14–100)</span></div>
-      <input id="age" type="number" min="14" max="100" inputmode="numeric" placeholder="예: 24" required />
-    </div>
-
-    <div class="row">
-      <div class="label">성별</div>
-      <div class="opt" role="radiogroup" aria-label="성별">
-        <label><input type="radio" name="gender" value="male" /> 남성</label>
-        <label><input type="radio" name="gender" value="female" /> 여성</label>
-        <label><input type="radio" name="gender" value="nonbinary" /> 논바이너리</label>
-        <label><input type="radio" name="gender" value="prefer_not" /> 응답 거부</label>
-        <label><input type="radio" name="gender" value="other" /> 기타</label>
+    <form id="survey" action="여기에_AppsScript_웹앱_/exec_URL" method="POST" target="sink" novalidate>
+      <div class="row">
+        <div class="label">나이 <span class="muted">(숫자, 14–100)</span></div>
+        <input id="age" name="age" type="number" min="14" max="100" inputmode="numeric" placeholder="예: 24" required />
       </div>
-      <input id="gender_text" class="hidden" type="text" placeholder="기타인 경우 상세 기입" />
-      <div class="help">※ “기타” 선택 시 구체적으로 적어주세요.</div>
-    </div>
 
-    <div class="row" style="margin-top:14px;">
-      <button id="submitBtn">제출</button>
-      <div id="msg" class="muted"></div>
-    </div>
+      <div class="row">
+        <div class="label">성별</div>
+        <div class="opt" role="radiogroup" aria-label="성별">
+          <label><input type="radio" name="gender" value="male" required>남성</label>
+          <label><input type="radio" name="gender" value="female">여성</label>
+          <label><input type="radio" name="gender" value="nonbinary">논바이너리</label>
+          <label><input type="radio" name="gender" value="prefer_not">응답 거부</label>
+          <label><input type="radio" name="gender" value="other">기타</label>
+        </div>
+        <input id="gender_text" name="gender_text" class="hidden" type="text" placeholder="기타 선택 시 상세 입력" />
+      </div>
+
+      <!-- UA 등 추가 메타(옵션) -->
+      <input type="hidden" name="ua" id="ua" value="" />
+
+      <div class="row" style="margin-top:14px;">
+        <button id="submitBtn" type="submit">제출</button>
+        <div id="msg" class="muted"></div>
+      </div>
+    </form>
   </div>
 
 <script>
-  // ====== 설정: Apps Script 웹앱 URL을 여기에 붙여넣기 ======
-  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbxRphkBzMvzpU6JaxJljs6B_mh71cTehLD5wMIboOdRsI_YU4LNBgfKUmoEkM2saLl8Pw/exec'; // 예: https://script.google.com/macros/s/AKfycbx.../exec
-  // ===============================================
+  // 제출 상태 플래그 (iframe 초기 onload와 구분)
+  let posting = false;
 
- const $ = (s)=>document.querySelector(s);
-  const ageInput   = $('#age');
+  const $ = (s)=>document.querySelector(s);
+  const form = $('#survey');
+  const msg  = $('#msg');
+  const btn  = $('#submitBtn');
   const genderText = $('#gender_text');
-  const msg        = $('#msg');
-  const btn        = $('#submitBtn');
 
+  // UA 채우기
+  $('#ua').value = navigator.userAgent;
+
+  // 기타 선택 시 상세 입력 노출
   document.addEventListener('change', () => {
-    const g = getGender();
+    const g = document.querySelector('input[name="gender"]:checked')?.value;
     if (g === 'other') {
-      genderText.classList.remove('hidden');
-      genderText.required = true;
+      genderText.classList.remove('hidden'); genderText.required = true;
     } else {
-      genderText.classList.add('hidden');
-      genderText.required = false;
-      genderText.value = '';
+      genderText.classList.add('hidden'); genderText.required = false; genderText.value='';
     }
   });
 
-  function getGender() {
-    const sel = document.querySelector('input[name="gender"]:checked');
-    return sel ? sel.value : '';
-  }
-
+  // 간단 검증
   function validate() {
-    const age = Number(ageInput.value);
-    if (!Number.isFinite(age) || age < 14 || age > 100) return '나이는 14–100 사이';
-    const g = getGender();
+    const age = Number($('#age').value);
+    if (!Number.isFinite(age) || age < 14 || age > 100) return '나이는 14–100 사이여야 합니다.';
+    const g = document.querySelector('input[name="gender"]:checked')?.value;
     if (!g) return '성별을 선택해주세요.';
-    if (g === 'other' && genderText.value.trim().length === 0) return '기타 상세 입력';
+    if (g === 'other' && genderText.value.trim().length === 0) return '기타 선택 시 상세를 입력해주세요.';
     return '';
   }
 
-  async function submitForm() {
-    const err = validate();
-    if (err) { msg.textContent = err; msg.className='err'; return; }
-
-    if (localStorage.getItem('demographic_submitted') === '1') {
-      msg.textContent = '이미 제출한 것으로 감지되었습니다.'; msg.className='err'; return;
-    }
-
-    btn.disabled = true; msg.textContent = '제출 중...'; msg.className='muted';
-
-    const body = new URLSearchParams();
-    body.set('age', String(Number(ageInput.value)));
-    body.set('gender', getGender());
-    body.set('gender_text', genderText.value.trim());
-    body.set('ua', navigator.userAgent);
-
-    try {
-      const res = await fetch(ENDPOINT, { method:'POST', mode:'cors', body });
-      const text = await res.text();
-      let data = null; try { data = JSON.parse(text); } catch(_){}
-      if (!res.ok || (data && data.ok === false)) {
-        throw new Error((data && data.error) || ('HTTP '+res.status));
-      }
-      const responseId = data?.response_id || '';
-      msg.textContent = '제출이 완료되었습니다.' + (responseId ? ` 응답 ID: ${responseId}` : '');
-      msg.className = 'ok';
-      localStorage.setItem('demographic_submitted', '1');
-    } catch (e) {
-      msg.textContent = '제출 실패: ' + String(e.message || e);
-      msg.className = 'err';
-      btn.disabled = false;
-    }
+  // 중복 제출 방지
+  if (localStorage.getItem('demographic_submitted') === '1') {
+    btn.disabled = true;
+    msg.textContent = '이미 제출한 것으로 감지되었습니다.';
+    msg.className = 'err';
   }
 
-  $('#submitBtn').addEventListener('click', submitForm);
-</script>
+  // 폼 제출 직전 훅
+  form.addEventListener('submit', (ev) => {
+    const err = validate();
+    if (err) {
+      ev.preventDefault();
+      msg.textContent = err;
+      msg.className = 'err';
+      return;
+    }
+    if (localStorage.getItem('demographic_submitted') === '1') {
+      ev.preventDefault();
+      msg.textContent = '이미 제출한 것으로 감지되었습니다.';
+      msg.className = 'err';
+      return;
+    }
+    posting = true;
+    btn.disabled = true;
+    msg.textContent = '제출 중...';
+    msg.className = 'muted';
+  });
+
+  // iframe 로드 → 실제 제출 완료 시점에 1회 발생
+  document.getElementById('sink').addEventListener('load', () => {
+    if (!posting) return;                 // 초기 로드 무시
+    posting = false;
+    localStorage.setItem('demographic_submitted', '1');
+    msg.textContent = '제출이 완료되었습니다.';
+    msg.className = 'ok';
+    form.reset();
+    btn.disabled = true;                  // 재제출 막기 (원하면 해제 가능)
+    // 다음 단계로 자동 이동하고 싶으면:
+    // location.href = './next.html';
+  });
 </script>
 </body>
 </html>
